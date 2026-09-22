@@ -1,0 +1,1364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLeague Scheduler</title>
+<style>
+  :root{
+    --bg:#1e1f26;
+    --surface:#26282f;
+    --surface-2:#2c2e37;
+    --border:#35363f;
+    --text:#f5f5f5;
+    --text-dim:#a0a0a8;
+    --accent:#d4af37;
+    --accent-dim:#a8892a;
+    --accent-ink:#1e1a08;
+    --accent-soft:#2e2710;
+    --ring:rgba(212,175,55,.35);
+    --danger:#e05555;
+    --good:#7ec48a;
+    --font-display:var(--font-body);
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --font-mono:"SFMono-Regular",Consolas,monospace;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.6;
+    padding-inline:16px;
+    padding-block:32px 48px;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{width:100%;max-width:880px;}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:var(--font-display);
+    font-weight:800;
+    font-size:28px;
+    letter-spacing:-0.01em;
+    margin:0 0 8px;
+    text-wrap:balance;
+  }
+  header p{
+    margin:0;
+    color:var(--text-dim);
+    font-size:14.5px;
+    line-height:1.5;
+    max-width:56ch;
+  }
+
+  .sync-status{
+    display:flex;align-items:center;gap:7px;
+    font-size:12px;color:var(--text-dim);
+    margin-top:10px;
+  }
+  .sync-status .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--good);flex:none;}
+  .sync-status.offline .sync-dot{background:var(--danger);}
+  .sync-status button{
+    border:none;background:none;color:var(--text-dim);
+    text-decoration:underline;cursor:pointer;font-size:12px;
+    padding:0;margin-left:auto;font-family:var(--font-body);
+  }
+  .sync-status button:hover{color:var(--accent);}
+  .sync-status .board-reveal-btn{
+    margin-left:0;text-decoration:none;
+    display:inline-flex;align-items:center;vertical-align:middle;
+  }
+  #boardLabel{letter-spacing:.05em;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:18px;
+  }
+  .card + .card{margin-top:16px;}
+
+  .section-title{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:.02em;
+    color:var(--text-dim);
+    margin:0 0 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .tz-picker{
+    display:flex;align-items:center;gap:7px;
+    font-size:12.5px;font-weight:600;color:var(--text-dim);
+  }
+  .tz-picker select{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:8px;
+    padding:6px 8px;
+    font-size:12.5px;
+    font-family:var(--font-body);
+    max-width:200px;
+  }
+  .tz-picker select:focus{outline:2px solid var(--ring);}
+
+  /* roster */
+  .roster-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:6px 12px 6px 8px;
+    font-size:13.5px;
+    font-weight:500;
+    cursor:pointer;
+    transition:box-shadow .12s ease, border-color .12s ease;
+  }
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px var(--ring);
+    background:var(--accent-soft);
+  }
+  .chip .dot{
+    width:14px;height:14px;border-radius:50%;flex:none;
+    border:1px solid rgba(0,0,0,.25);
+    padding:0;cursor:pointer;
+  }
+  .chip .dot:hover{box-shadow:0 0 0 2px var(--ring);}
+  .dot-btn{
+    width:20px;height:20px;border-radius:50%;flex:none;
+    border:1px solid var(--border);
+    cursor:pointer;
+    padding:0;
+  }
+  .dot-btn:hover{box-shadow:0 0 0 2px var(--ring);}
+
+  .color-popover{
+    position:fixed;
+    z-index:60;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    width:184px;
+    box-shadow:0 12px 28px rgba(0,0,0,.45);
+  }
+  .color-popover[hidden]{display:none;}
+  .color-swatch-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .color-swatch{
+    width:32px;height:32px;
+    border-radius:50%;
+    border:2px solid transparent;
+    cursor:pointer;
+    padding:0;
+    position:relative;
+  }
+  .color-swatch:hover{box-shadow:0 0 0 2px var(--ring);}
+  .color-swatch.selected{border-color:var(--accent);}
+  .color-swatch.selected::after{
+    content:"";
+    position:absolute;inset:0;margin:auto;
+    width:8px;height:8px;border-radius:50%;
+    background:var(--accent-ink);
+    box-shadow:0 0 0 1px rgba(0,0,0,.3);
+  }
+  .color-divider{height:1px;background:var(--border);margin:2px 0 10px;}
+  .color-custom-row{display:flex;align-items:center;gap:8px;}
+  .color-custom-swatch{
+    width:28px;height:28px;border-radius:6px;
+    border:1px solid var(--border);
+    padding:0;background:none;
+    cursor:pointer;
+  }
+  .color-hex-input{
+    flex:1;min-width:0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 8px;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    letter-spacing:.03em;
+  }
+  .color-hex-input:focus{outline:2px solid var(--ring);border-color:var(--accent);}
+  .chip .tzabbr{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    font-weight:700;
+    color:var(--accent-dim);
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:1px 5px;
+  }
+  .chip .rm{
+    border:none;background:none;color:var(--text-dim);
+    font-size:14px;line-height:1;cursor:pointer;padding:2px;
+    border-radius:50%;
+  }
+  .chip .rm:hover{color:var(--danger);}
+
+  .add-form{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .add-form input[type="text"]{
+    flex:1 1 160px;min-width:0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:9px 12px;
+    color:var(--text);
+    font-size:14px;
+    font-family:var(--font-body);
+  }
+  .add-form select{
+    flex:1 1 170px;min-width:0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:9px 10px;
+    color:var(--text);
+    font-size:13.5px;
+    font-family:var(--font-body);
+  }
+  .add-form input[type="text"]:focus, .add-form select:focus{outline:2px solid var(--ring);border-color:var(--accent);}
+  button{font-family:var(--font-body);}
+  .btn{
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    border-radius:6px;
+    padding:9px 14px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn:focus-visible{outline:2px solid var(--ring);outline-offset:1px;}
+  .btn-primary{
+    background:var(--accent);
+    color:var(--accent-ink);
+    border-color:var(--accent);
+  }
+  .btn-primary:hover{filter:brightness(1.05);}
+  .btn-sm{padding:6px 10px;font-size:12.5px;}
+
+  .empty-note{
+    color:var(--text-dim);
+    font-size:13.5px;
+    padding:6px 2px;
+  }
+
+  /* mode bar */
+  .mode-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .editing-banner{
+    display:flex;align-items:center;gap:8px;
+    font-size:13.5px;font-weight:600;
+    padding:7px 12px;
+    border-radius:6px;
+    background:var(--accent-soft);
+    color:var(--text);
+    margin-bottom:12px;
+  }
+  .editing-banner .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+
+  /* grid */
+  .grid-scroll{overflow-x:auto;border-radius:6px;}
+  table.sched{
+    border-collapse:collapse;
+    width:100%;
+    min-width:640px;
+    font-variant-numeric:tabular-nums;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+  }
+  table.sched th, table.sched td{
+    border:1px solid var(--border);
+    text-align:center;
+  }
+  table.sched thead th{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:12.5px;
+    color:var(--text-dim);
+    background:var(--surface-2);
+    padding:8px 4px;
+  }
+  table.sched thead th.corner{background:var(--surface);border:none;}
+  table.sched tbody th{
+    font-family:var(--font-mono);
+    font-size:11px;
+    font-weight:500;
+    color:var(--text-dim);
+    background:var(--surface-2);
+    padding:0 8px;
+    white-space:nowrap;
+    text-align:right;
+  }
+  td.cell{
+    width:13%;
+    height:16px;
+    padding:0;
+    cursor:pointer;
+    position:relative;
+    transition:background-color .08s ease;
+    touch-action:none;
+  }
+  td.cell:hover{outline:2px solid var(--ring);outline-offset:-2px;}
+  td.cell.disabled{
+    cursor:default;
+    background:repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--bg) 6px 12px);
+  }
+  td.cell.disabled:hover{outline:none;}
+  td.cell .count{
+    font-family:var(--font-mono);
+    font-size:10px;
+    font-weight:700;
+    color:var(--accent-ink);
+    opacity:0;
+  }
+  td.cell.has-count .count{opacity:1;}
+  .hour-sep td, .hour-sep th{border-top:1px solid var(--border);}
+
+  .legend{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin-top:12px;font-size:12px;color:var(--text-dim);
+  }
+  .legend .swatches{display:flex;align-items:center;gap:3px;}
+  .legend .sw{width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
+
+  /* best times */
+  .best-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .best-item{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--surface-2);
+  }
+  .best-item .when{font-family:var(--font-mono);font-weight:600;font-size:14px;}
+  .best-item .day-tag{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:11px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-right:8px;
+  }
+  .best-item .frac{
+    font-family:var(--font-mono);
+    font-weight:800;
+    font-size:13px;
+    background:var(--accent);
+    color:var(--accent-ink);
+    padding:3px 9px;
+    border-radius:999px;
+    flex:none;
+  }
+  .names{font-size:12px;color:var(--text-dim);margin-top:2px;}
+
+  .cell-detail{
+    margin-top:12px;
+    font-size:13px;
+    color:var(--text-dim);
+    min-height:20px;
+  }
+  .cell-detail strong{color:var(--text);}
+
+  .note{font-size:12px;color:var(--text-dim);margin:0 0 12px;}
+
+  /* modal */
+  .modal-backdrop{
+    position:fixed;inset:0;
+    background:rgba(10,10,12,.6);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:50;
+  }
+  .modal-backdrop[hidden]{display:none;}
+  .gate-backdrop{background:var(--bg);}
+  .gate-backdrop .modal{max-width:380px;}
+  .gate-backdrop .btn-primary{width:100%;justify-content:center;}
+  .modal{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:22px;
+    width:100%;max-width:360px;
+  }
+  .modal h2{
+    font-family:var(--font-display);
+    font-size:16px;font-weight:700;color:var(--accent);
+    margin:0 0 8px;
+  }
+  .modal p{font-size:13px;color:var(--text-dim);margin:0 0 14px;line-height:1.5;}
+  .modal input[type="password"], .modal input[type="text"]{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:10px 12px;
+    color:var(--text);
+    font-size:14px;
+    font-family:var(--font-mono);
+    letter-spacing:.05em;
+    margin-bottom:10px;
+  }
+  .modal input:focus{outline:2px solid var(--ring);border-color:var(--accent);}
+  .modal .modal-error{font-size:12.5px;color:var(--danger);margin:-4px 0 10px;min-height:16px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+</style>
+</head>
+<body>
+
+<div class="modal-backdrop gate-backdrop" id="landingGate" hidden>
+  <div class="modal">
+    <p class="eyebrow" style="margin:0 0 4px;">Guild League Finder</p>
+    <h2>GLeague Scheduler</h2>
+    <p>Enter your name and your group's board code to see their schedule.</p>
+    <input type="text" id="gateNameInput" placeholder="Your name" autocomplete="off">
+    <input type="password" id="gatePasscodeInput" placeholder="Board code" autocomplete="off">
+    <div class="modal-error" id="gateError"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="gateSubmitBtn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Guild League Finder</p>
+    <h1>GLeague Scheduler</h1>
+    <div class="sync-status" id="syncStatus">
+      <span class="sync-dot"></span>
+      <span id="syncStatusText">Connecting…</span>
+    </div>
+    <div class="sync-status">
+      <span id="gateGreeting">Board: <strong id="boardLabel"></strong></span>
+      <button type="button" id="switchBoardBtn">Not you? Switch</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="section-title">Roster</div>
+    <div class="roster-row" id="rosterRow"></div>
+    <div class="empty-note" id="emptyNote" hidden>No one added yet - add your first teammate below.</div>
+    <form class="add-form" id="addForm">
+      <button type="button" class="dot-btn" id="addColorBtn" aria-label="Pick a color" title="Pick a color"></button>
+      <input type="text" id="nameInput" placeholder="Name" maxlength="24" autocomplete="off">
+      <select id="tzInput" aria-label="Teammate's time zone"></select>
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+  </div>
+
+
+  <div class="card">
+    <div class="mode-bar">
+      <div class="section-title" style="margin:0;">Weekly availability</div>
+      <div class="tz-picker">
+        <span>Showing times in</span>
+        <select id="displayTzSelect" aria-label="Display time zone"></select>
+      </div>
+    </div>
+    <p class="note">Weekdays: 6:00 PM - 3:00 AM &nbsp;·&nbsp; Weekends: 3:00 PM - 3:00 AM &nbsp;·&nbsp; 20-minute blocks</p>
+    <div id="editingBanner"></div>
+    <div id="modeControls" style="margin-bottom:10px;"></div>
+
+    <div class="grid-scroll">
+      <table class="sched" id="schedTable"></table>
+    </div>
+
+    <div class="legend">
+      <span>Overlap:</span>
+      <div class="swatches" id="legendSwatches"></div>
+      <span id="legendLabels" style="margin-left:2px;"></span>
+    </div>
+    <div class="cell-detail" id="cellDetail">Hover or tap a cell to see who's free then.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Best overlap this week</div>
+    <ul class="best-list" id="bestList"></ul>
+  </div>
+
+</div>
+
+<div class="color-popover" id="colorPopover" hidden>
+  <div class="color-swatch-grid" id="colorSwatchGrid"></div>
+  <div class="color-divider"></div>
+  <div class="color-custom-row">
+    <input type="color" id="colorCustomInput" class="color-custom-swatch" aria-label="Custom color">
+    <input type="text" id="colorHexInput" class="color-hex-input" maxlength="7" placeholder="#000000" spellcheck="false">
+  </div>
+</div>
+
+<script type="module">
+  // Firebase config
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCDCKBEianpwA3To9J-vPArIFmYUOqR3Ag",
+    authDomain: "html-79b03.firebaseapp.com",
+    projectId: "html-79b03",
+    storageBucket: "html-79b03.firebasestorage.app",
+    messagingSenderId: "222133203481",
+    appId: "1:222133203481:web:20b7e978aa036389697088"
+  };
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+  const app = initializeApp(FIREBASE_CONFIG);
+  const db = getFirestore(app);
+
+  const BOARD_KEY = "gleagueScheduler:board";
+  const NAME_KEY = "gleagueScheduler:name";
+  const TZ_PREF_KEY = "gleagueScheduler:displayTz";
+  let currentBoard = localStorage.getItem(BOARD_KEY) || "";
+  let unsubscribePeople = null;
+
+  function sanitizeBoardId(raw){
+    return (raw || "")
+      .trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+  }
+  function getPeopleCol(){
+    return collection(db, "glBoards", currentBoard, "people");
+  }
+  function boardDisplayName(){
+    return currentBoard;
+  }
+
+  const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const COLORS = ["#5aaee0","#b08ee0","#7ec48a","#e07830","#e05555","#6a8ee0","#e0b85a","#e0a3c8"];
+
+  // slot grid: 36 rows of 20 minutes, starting 3:00 PM (covers the widest window, 3 PM-3 AM)
+  const SLOT_STEP = 20;
+  const WINDOW_START_MIN = 15 * 60; // 3:00 PM
+  const SLOT_COUNT = 36; // 12 hours of 20-minute blocks -> 3:00 PM to 3:00 AM
+  const WEEK_MIN = 7 * 24 * 60;
+  const SLOTS = Array.from({ length: SLOT_COUNT }, function(_, i){ return i; });
+  const WEEKDAY_ACTIVE_FROM = (18 * 60 - WINDOW_START_MIN) / SLOT_STEP; // slot index where 6 PM starts
+
+  function slotTimeOfDay(i){ return (WINDOW_START_MIN + i * SLOT_STEP) % 1440; }
+  function slotDayOffset(i){ return Math.floor((WINDOW_START_MIN + i * SLOT_STEP) / 1440); }
+  function isActive(dayIdx, i){ return dayIdx <= 4 ? i >= WEEKDAY_ACTIVE_FROM : true; }
+  function weekMinuteFor(dayIdx, i){
+    const nd = (dayIdx + slotDayOffset(i)) % 7;
+    return nd * 1440 + slotTimeOfDay(i);
+  }
+  function fmtClock(totalMin){
+    const h24 = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const period = h24 >= 12 ? "PM" : "AM";
+    let h12 = h24 % 12;
+    if(h12 === 0) h12 = 12;
+    return h12 + ":" + String(m).padStart(2, "0") + " " + period;
+  }
+
+  const TZ_LIST = [
+    ["Pacific/Honolulu","Hawaii"],
+    ["America/Anchorage","Alaska"],
+    ["America/Los_Angeles","Pacific (US & Canada)"],
+    ["America/Denver","Mountain (US & Canada)"],
+    ["America/Chicago","Central (US & Canada)"],
+    ["America/New_York","Eastern (US & Canada)"],
+    ["America/Sao_Paulo","Brazil (São Paulo)"],
+    ["UTC","UTC"],
+    ["Europe/London","UK (London)"],
+    ["Europe/Paris","Central Europe (Paris/Berlin)"],
+    ["Europe/Moscow","Moscow"],
+    ["Asia/Kolkata","India (IST)"],
+    ["Asia/Singapore","Singapore / Malaysia"],
+    ["Asia/Shanghai","China (Shanghai)"],
+    ["Asia/Tokyo","Japan (Tokyo)"],
+    ["Australia/Sydney","Australia (Sydney)"],
+    ["Pacific/Auckland","New Zealand (Auckland)"]
+  ];
+
+  function detectTz(){
+    try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"; }
+    catch(e){ return "America/New_York"; }
+  }
+  const DETECTED_TZ = detectTz();
+
+  function tzLabel(tz){
+    const hit = TZ_LIST.find(function(o){ return o[0] === tz; });
+    return hit ? hit[1] : tz;
+  }
+  function tzAbbr(tz, refDate){
+    try{
+      const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" }).formatToParts(refDate);
+      const hit = parts.find(function(p){ return p.type === "timeZoneName"; });
+      return hit ? hit.value : "";
+    }catch(e){ return ""; }
+  }
+  function tzOffsetMinutes(tz, date){
+    try{
+      const dtf = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, hourCycle: "h23",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+      const parts = dtf.formatToParts(date).reduce(function(acc,p){ acc[p.type]=p.value; return acc; }, {});
+      const asUTC = Date.UTC(
+        parseInt(parts.year,10), parseInt(parts.month,10)-1, parseInt(parts.day,10),
+        parseInt(parts.hour,10), parseInt(parts.minute,10), parseInt(parts.second,10)
+      );
+      return (asUTC - date.getTime()) / 60000;
+    }catch(e){ return 0; }
+  }
+  function convertWeekMinute(weekMin, fromTz, toTz, refDate){
+    if(fromTz === toTz) return weekMin;
+    const diffMin = tzOffsetMinutes(toTz, refDate) - tzOffsetMinutes(fromTz, refDate);
+    let total = weekMin + diffMin;
+    total = Math.round(total / SLOT_STEP) * SLOT_STEP;
+    return ((total % WEEK_MIN) + WEEK_MIN) % WEEK_MIN;
+  }
+  function cellKey(weekMin){ return String(weekMin); }
+  function newId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,10);
+  }
+
+  // state
+  let people = [];
+  let activeId = null;
+  let mode = "overlap";
+  let editBuffer = null;
+  let paintValue = null;
+  let refDate = new Date();
+  let displayTz = localStorage.getItem(TZ_PREF_KEY) || DETECTED_TZ;
+  let addColor = COLORS[0];
+  let addColorTouched = false;
+  let boardRevealed = false;
+
+  const EYE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  const EYE_OFF_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.86 21.86 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.86 21.86 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+  function activePerson(){
+    if(!activeId) return null;
+    const base = people.find(function(p){ return p.id === activeId; });
+    if(!base) return null;
+    if(editBuffer && editBuffer.id === activeId) return Object.assign({}, base, { cells: editBuffer.cells });
+    return base;
+  }
+
+  function normalizeHex(v){
+    v = (v || "").trim();
+    if(!v.startsWith("#")) v = "#" + v;
+    if(/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+    if(/^#[0-9a-fA-F]{3}$/.test(v)){
+      return "#" + v.slice(1).split("").map(function(c){ return c + c; }).join("");
+    }
+    return null;
+  }
+
+  function pickColor(triggerEl, currentColor, onPick){
+    const pop = document.getElementById("colorPopover");
+    const grid = document.getElementById("colorSwatchGrid");
+    const customInput = document.getElementById("colorCustomInput");
+    const hexInput = document.getElementById("colorHexInput");
+
+    function close(){
+      pop.hidden = true;
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("keydown", onKey);
+    }
+    function choose(color){
+      close();
+      onPick(color);
+    }
+    function onOutside(e){
+      if(!pop.contains(e.target) && e.target !== triggerEl){ close(); }
+    }
+    function onKey(e){ if(e.key === "Escape") close(); }
+
+    grid.innerHTML = "";
+    COLORS.forEach(function(c){
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "color-swatch" + (c.toLowerCase() === currentColor.toLowerCase() ? " selected" : "");
+      sw.style.background = c;
+      sw.setAttribute("aria-label", c);
+      sw.addEventListener("click", function(){ choose(c); });
+      grid.appendChild(sw);
+    });
+
+    customInput.value = /^#[0-9a-fA-F]{6}$/.test(currentColor) ? currentColor : "#000000";
+    hexInput.value = currentColor;
+    customInput.oninput = function(){ hexInput.value = customInput.value; };
+    customInput.onchange = function(){ choose(customInput.value); };
+    hexInput.onkeydown = function(e){
+      if(e.key === "Enter"){
+        const v = normalizeHex(hexInput.value);
+        if(v) choose(v);
+      }
+    };
+    hexInput.onblur = function(){
+      const v = normalizeHex(hexInput.value);
+      if(v) hexInput.value = v;
+    };
+
+    pop.hidden = false;
+    const rect = triggerEl.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 8;
+    pop.style.left = "0px";
+    pop.style.top = "0px";
+    const popRect = pop.getBoundingClientRect();
+    const maxLeft = window.innerWidth - popRect.width - 8;
+    if(left > maxLeft) left = Math.max(8, maxLeft);
+    if(top + popRect.height > window.innerHeight - 8){ top = rect.top - popRect.height - 8; }
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    setTimeout(function(){
+      document.addEventListener("mousedown", onOutside);
+      document.addEventListener("keydown", onKey);
+    }, 0);
+  }
+
+  // firestore sync
+  let hasSubscribed = false;
+  function subscribeBoard(){
+    hasSubscribed = true;
+    if(unsubscribePeople){ unsubscribePeople(); unsubscribePeople = null; }
+    people = [];
+    activeId = null;
+    mode = "overlap";
+    editBuffer = null;
+    boardRevealed = false;
+    setSyncStatus(null);
+    renderAll();
+    unsubscribePeople = onSnapshot(getPeopleCol(), function(snapshot){
+      people = snapshot.docs
+        .map(function(d){ return Object.assign({ id: d.id }, d.data()); })
+        .filter(function(p){ return !p.removed; })
+        .sort(function(a,b){ return (a.createdAt||0) - (b.createdAt||0); });
+      setSyncStatus(true);
+      renderAll();
+    }, function(err){
+      console.error(err);
+      setSyncStatus(false);
+    });
+  }
+
+  function setSyncStatus(ok){
+    const el = document.getElementById("syncStatus");
+    const text = document.getElementById("syncStatusText");
+    el.classList.toggle("offline", ok === false);
+    text.textContent = ok === null ? "Connecting…" : (ok ? "Synced live for the whole group" : "Can't reach the shared list right now");
+  }
+
+  async function writePerson(person){
+    await setDoc(doc(getPeopleCol(), person.id), person, { merge: false });
+  }
+
+  async function performWrite(person){
+    try{
+      await writePerson(person);
+      return true;
+    }catch(err){
+      console.error(err);
+      alert("Couldn't reach this board's list. Check your connection and try again.");
+      return false;
+    }
+  }
+
+  // add/edit/remove people
+  async function addPerson(name, tz){
+    name = name.trim();
+    if(!name) return;
+    const id = newId();
+    const person = {
+      id: id,
+      name: name,
+      color: addColor,
+      tz: tz || displayTz,
+      cells: {},
+      removed: false,
+      createdAt: Date.now()
+    };
+    const ok = await performWrite(person);
+    if(ok){
+      activeId = id;
+      mode = "edit";
+      editBuffer = { id: id, cells: {} };
+      addColorTouched = false;
+      renderAll();
+    }
+  }
+
+  async function recolorPerson(person, color){
+    const updated = Object.assign({}, person, { color: color });
+    await performWrite(updated);
+  }
+
+  async function removePerson(p){
+    const ok = await performWrite(Object.assign({}, p, { removed: true }));
+    if(ok && activeId === p.id){ activeId = null; mode = "overlap"; editBuffer = null; renderAll(); }
+  }
+
+  function selectPerson(id){
+    const base = people.find(function(p){ return p.id === id; });
+    if(!base) return;
+    activeId = id;
+    mode = "edit";
+    editBuffer = { id: id, cells: Object.assign({}, base.cells || {}) };
+    renderAll();
+  }
+  function exitEdit(){
+    mode = "overlap";
+    activeId = null;
+    editBuffer = null;
+    renderAll();
+  }
+
+  function toggleDisplayCellLocal(dayIdx, i, forceValue){
+    if(!editBuffer) return null;
+    const base = people.find(function(p){ return p.id === editBuffer.id; });
+    const tz = base ? base.tz : displayTz;
+    const displayMin = weekMinuteFor(dayIdx, i);
+    const nativeMin = convertWeekMinute(displayMin, displayTz, tz, refDate);
+    const key = cellKey(nativeMin);
+    const isOn = !!editBuffer.cells[key];
+    const newVal = (typeof forceValue === "boolean") ? forceValue : !isOn;
+    if(newVal) editBuffer.cells[key] = true;
+    else delete editBuffer.cells[key];
+    return newVal;
+  }
+  function isDisplayCellOn(person, dayIdx, i){
+    const displayMin = weekMinuteFor(dayIdx, i);
+    const nativeMin = convertWeekMinute(displayMin, displayTz, person.tz, refDate);
+    return !!(person.cells || {})[cellKey(nativeMin)];
+  }
+
+  async function flushEditBuffer(){
+    if(!editBuffer) return;
+    const base = people.find(function(p){ return p.id === editBuffer.id; });
+    if(!base) return;
+    const updated = Object.assign({}, base, { cells: editBuffer.cells });
+    await performWrite(updated);
+  }
+
+  // overlap calculations
+  function computeCounts(){
+    const counts = {};
+    const names = {};
+    DAYS.forEach(function(_, d){
+      SLOTS.forEach(function(i){
+        if(!isActive(d, i)) return;
+        const k = cellKey(weekMinuteFor(d, i));
+        counts[k] = 0; names[k] = [];
+      });
+    });
+    people.forEach(function(p){
+      const cells = (activeId === p.id && editBuffer) ? editBuffer.cells : (p.cells || {});
+      Object.keys(cells).forEach(function(key){
+        const nativeMin = parseInt(key, 10);
+        const dispMin = convertWeekMinute(nativeMin, p.tz, displayTz, refDate);
+        const dkey = cellKey(dispMin);
+        if(counts[dkey] === undefined){ counts[dkey]=0; names[dkey]=[]; }
+        counts[dkey]++;
+        names[dkey].push(p.name);
+      });
+    });
+    return { counts: counts, names: names };
+  }
+  function heatColor(count, total){
+    if(count <= 0 || total <= 0) return null;
+    const ratio = Math.min(1, count/total);
+    const alpha = 0.16 + ratio * 0.7;
+    return "color-mix(in srgb, var(--accent) " + Math.round(alpha*100) + "%, transparent)";
+  }
+
+  // timezone dropdowns
+  function populateTzSelect(select, selectedTz){
+    select.innerHTML = "";
+    const included = {};
+    const opts = TZ_LIST.slice();
+    if(!opts.some(function(o){ return o[0] === DETECTED_TZ; })){ opts.unshift([DETECTED_TZ, "Your time zone (detected)"]); }
+    opts.forEach(function(pair){
+      if(included[pair[0]]) return;
+      included[pair[0]] = true;
+      const opt = document.createElement("option");
+      opt.value = pair[0];
+      opt.textContent = pair[1] + (pair[0] === DETECTED_TZ ? " - detected" : "");
+      select.appendChild(opt);
+    });
+    if(!included[selectedTz]){
+      const extra = document.createElement("option");
+      extra.value = selectedTz;
+      extra.textContent = selectedTz;
+      select.appendChild(extra);
+    }
+    select.value = selectedTz;
+  }
+
+  // render UI
+  function renderRoster(){
+    const row = document.getElementById("rosterRow");
+    row.innerHTML = "";
+    document.getElementById("emptyNote").hidden = people.length > 0;
+    people.forEach(function(p){
+      const chip = document.createElement("div");
+      chip.className = "chip" + (activeId === p.id && mode === "edit" ? " active" : "");
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "dot";
+      dot.style.background = p.color;
+      dot.setAttribute("aria-label", "Change " + p.name + "'s color");
+      dot.title = "Change color";
+      dot.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        pickColor(dot, p.color, function(newColor){ recolorPerson(p, newColor); });
+      });
+      chip.appendChild(dot);
+      const label = document.createElement("span");
+      label.textContent = p.name;
+      chip.appendChild(label);
+      const abbr = document.createElement("span");
+      abbr.className = "tzabbr";
+      abbr.textContent = tzAbbr(p.tz, refDate) || tzLabel(p.tz);
+      abbr.title = tzLabel(p.tz);
+      chip.appendChild(abbr);
+      const rm = document.createElement("button");
+      rm.className = "rm";
+      rm.type = "button";
+      rm.setAttribute("aria-label", "Remove " + p.name);
+      rm.textContent = "×";
+      rm.addEventListener("click", function(ev){ ev.stopPropagation(); removePerson(p); });
+      chip.appendChild(rm);
+      chip.addEventListener("click", function(){ selectPerson(p.id); });
+      row.appendChild(chip);
+    });
+  }
+
+  function renderModeControls(){
+    const el = document.getElementById("modeControls");
+    el.innerHTML = "";
+    if(mode === "edit"){
+      const done = document.createElement("button");
+      done.className = "btn btn-primary btn-sm";
+      done.type = "button";
+      done.textContent = "Done editing";
+      done.addEventListener("click", exitEdit);
+      el.appendChild(done);
+    } else if(people.length){
+      const hint = document.createElement("span");
+      hint.style.fontSize = "12.5px";
+      hint.style.color = "var(--text-dim)";
+      hint.textContent = "Tap a name above to edit their hours";
+      el.appendChild(hint);
+    }
+  }
+
+  function renderEditingBanner(){
+    const el = document.getElementById("editingBanner");
+    el.innerHTML = "";
+    if(mode === "edit"){
+      const p = activePerson();
+      if(!p) return;
+      const banner = document.createElement("div");
+      banner.className = "editing-banner";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = p.color;
+      banner.appendChild(dot);
+      const text = document.createElement("span");
+      text.textContent = "Editing " + p.name + "’s hours (" + tzLabel(p.tz) + ") - click or drag cells to toggle";
+      banner.appendChild(text);
+      el.appendChild(banner);
+    }
+  }
+
+  function renderTable(){
+    const table = document.getElementById("schedTable");
+    table.innerHTML = "";
+    const thead = document.createElement("thead");
+    const htr = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.className = "corner";
+    htr.appendChild(corner);
+    DAYS.forEach(function(d, i){
+      const th = document.createElement("th");
+      th.textContent = d;
+      th.title = DAY_FULL[i];
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    const data = computeCounts();
+    const total = people.length;
+    const editing = activePerson();
+
+    SLOTS.forEach(function(i){
+      const tr = document.createElement("tr");
+      if(i % 3 === 0){ tr.className = "hour-sep"; }
+      const rowHead = document.createElement("th");
+      rowHead.textContent = fmtClock(slotTimeOfDay(i));
+      tr.appendChild(rowHead);
+
+      DAYS.forEach(function(d, dayIdx){
+        const td = document.createElement("td");
+        td.className = "cell";
+        td.dataset.day = dayIdx;
+        td.dataset.slot = i;
+
+        if(!isActive(dayIdx, i)){
+          td.classList.add("disabled");
+          tr.appendChild(td);
+          return;
+        }
+
+        const key = cellKey(weekMinuteFor(dayIdx, i));
+        if(mode === "edit" && editing){
+          const isOn = isDisplayCellOn(editing, dayIdx, i);
+          td.style.background = isOn ? editing.color : "transparent";
+        } else {
+          const count = data.counts[key] || 0;
+          const color = heatColor(count, total);
+          td.style.background = color || "transparent";
+          if(count > 0){
+            td.classList.add("has-count");
+            const span = document.createElement("span");
+            span.className = "count";
+            span.textContent = count;
+            td.appendChild(span);
+          }
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  }
+
+  function wireGridInteractions(table){
+    let isPointerDown = false;
+    let activePointerId = null;
+    let lastCellEl = null;
+
+    function applyToggle(td, forcedValue){
+      if(mode !== "edit" || !editBuffer || td.classList.contains("disabled")) return;
+      const d = parseInt(td.dataset.day,10), i = parseInt(td.dataset.slot,10);
+      const p = activePerson();
+      toggleDisplayCellLocal(d, i, forcedValue);
+      td.style.background = forcedValue ? p.color : "transparent";
+    }
+
+    function endDrag(){
+      if(!isPointerDown) return;
+      isPointerDown = false;
+      activePointerId = null;
+      lastCellEl = null;
+      paintValue = null;
+      flushEditBuffer().then(function(){ renderBest(); renderLegend(); });
+    }
+
+    table.addEventListener("pointerdown", function(e){
+      const td = e.target.closest("td.cell");
+      if(!td || mode !== "edit" || !editBuffer || td.classList.contains("disabled")) return;
+      e.preventDefault();
+      const p = activePerson();
+      const d = parseInt(td.dataset.day,10), i = parseInt(td.dataset.slot,10);
+      paintValue = !isDisplayCellOn(p, d, i);
+      isPointerDown = true;
+      activePointerId = e.pointerId;
+      lastCellEl = td;
+      table.setPointerCapture(e.pointerId);
+      applyToggle(td, paintValue);
+    });
+
+    table.addEventListener("pointermove", function(e){
+      if(!isPointerDown || e.pointerId !== activePointerId || paintValue === null) return;
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const td = target ? target.closest("td.cell") : null;
+      if(!td || td === lastCellEl || !table.contains(td)) return;
+      lastCellEl = td;
+      applyToggle(td, paintValue);
+    });
+
+    table.addEventListener("pointerup", endDrag);
+    table.addEventListener("pointercancel", endDrag);
+    document.addEventListener("pointerup", endDrag);
+
+    table.addEventListener("mouseover", function(e){
+      const td = e.target.closest("td.cell");
+      if(!td || mode === "edit" || td.classList.contains("disabled")) return;
+      showCellDetail(parseInt(td.dataset.day,10), parseInt(td.dataset.slot,10));
+    });
+    table.addEventListener("click", function(e){
+      const td = e.target.closest("td.cell");
+      if(!td || mode === "edit" || td.classList.contains("disabled")) return;
+      showCellDetail(parseInt(td.dataset.day,10), parseInt(td.dataset.slot,10));
+    });
+  }
+
+  function showCellDetail(dayIdx, i){
+    const el = document.getElementById("cellDetail");
+    const data = computeCounts();
+    const key = cellKey(weekMinuteFor(dayIdx, i));
+    const names = data.names[key] || [];
+    const label = DAY_FULL[dayIdx] + " " + fmtClock(slotTimeOfDay(i)) + "-" + fmtClock((slotTimeOfDay(i)+SLOT_STEP)%1440);
+    el.innerHTML = names.length === 0
+      ? "<strong>" + label + "</strong> - no one free yet"
+      : "<strong>" + label + "</strong> - " + names.join(", ");
+  }
+
+  function renderLegend(){
+    const sw = document.getElementById("legendSwatches");
+    const labels = document.getElementById("legendLabels");
+    sw.innerHTML = "";
+    const total = people.length || 1;
+    const steps = [0, Math.ceil(total*0.34), Math.ceil(total*0.67), total];
+    const seen = {};
+    steps.forEach(function(s){
+      if(seen[s]) return;
+      seen[s] = true;
+      const box = document.createElement("span");
+      box.className = "sw";
+      box.style.background = s === 0 ? "transparent" : heatColor(s, total);
+      sw.appendChild(box);
+    });
+    labels.textContent = "none  →  everyone (" + people.length + ")";
+  }
+
+  function mergeBlocks(){
+    const data = computeCounts();
+    const total = people.length;
+    const blocks = [];
+    if(total === 0) return blocks;
+
+    DAYS.forEach(function(_, d){
+      const slots = SLOTS.filter(function(i){ return isActive(d, i); });
+      let idx = 0;
+      while(idx < slots.length){
+        const i = slots[idx];
+        const key = cellKey(weekMinuteFor(d, i));
+        const count = data.counts[key] || 0;
+        if(count === 0){ idx++; continue; }
+        const startSlot = i;
+        const startNames = data.names[key].slice().sort();
+        let j = idx+1;
+        while(j < slots.length){
+          const ni = slots[j];
+          const contiguous = (ni === slots[j-1] + 1);
+          const nkey = cellKey(weekMinuteFor(d, ni));
+          const ncount = data.counts[nkey] || 0;
+          const nnames = (data.names[nkey]||[]).slice().sort();
+          if(!contiguous || ncount !== count || nnames.join("|") !== startNames.join("|")) break;
+          j++;
+        }
+        const endSlot = slots[j-1];
+        blocks.push({ day: d, startSlot: startSlot, endSlot: endSlot, count: count, names: startNames });
+        idx = j;
+      }
+    });
+
+    blocks.sort(function(a,b){
+      if(b.count !== a.count) return b.count - a.count;
+      return (b.endSlot-b.startSlot) - (a.endSlot-a.startSlot);
+    });
+    return blocks;
+  }
+
+  function renderBest(){
+    const list = document.getElementById("bestList");
+    list.innerHTML = "";
+    const total = people.length;
+    if(total === 0){
+      const li0 = document.createElement("li");
+      li0.className = "empty-note";
+      li0.textContent = "Add people and mark their hours to see the best overlap.";
+      list.appendChild(li0);
+      return;
+    }
+    const blocks = mergeBlocks().filter(function(b){ return b.count > 0; }).slice(0,5);
+    if(blocks.length === 0){
+      const li = document.createElement("li");
+      li.className = "empty-note";
+      li.textContent = "No one has marked their hours yet.";
+      list.appendChild(li);
+      return;
+    }
+    blocks.forEach(function(b){
+      const li = document.createElement("li");
+      li.className = "best-item";
+      const left = document.createElement("div");
+      const when = document.createElement("div");
+      when.className = "when";
+      const tag = document.createElement("span");
+      tag.className = "day-tag";
+      tag.textContent = DAYS[b.day];
+      when.appendChild(tag);
+      when.appendChild(document.createTextNode(fmtClock(slotTimeOfDay(b.startSlot)) + " - " + fmtClock((slotTimeOfDay(b.endSlot)+SLOT_STEP)%1440)));
+      left.appendChild(when);
+      const names = document.createElement("div");
+      names.className = "names";
+      names.textContent = b.names.join(", ");
+      left.appendChild(names);
+      li.appendChild(left);
+      const frac = document.createElement("span");
+      frac.className = "frac";
+      frac.textContent = b.count + "/" + total;
+      li.appendChild(frac);
+      list.appendChild(li);
+    });
+  }
+
+  function renderAll(){
+    refDate = new Date();
+    if(!addColorTouched){ addColor = COLORS[people.length % COLORS.length]; }
+    document.getElementById("addColorBtn").style.background = addColor;
+    renderRoster();
+    populateTzSelect(document.getElementById("displayTzSelect"), displayTz);
+    renderModeControls();
+    renderEditingBanner();
+    renderTable();
+    renderLegend();
+    renderBest();
+    const savedName = localStorage.getItem(NAME_KEY);
+    const boardName = boardDisplayName();
+    const boardShown = boardRevealed ? escapeHtml(boardName) : "•".repeat(Math.max(boardName.length, 6));
+    const boardHtml = "<strong id=\"boardLabel\">" + boardShown + "</strong> " +
+      "<button type=\"button\" id=\"boardRevealBtn\" class=\"board-reveal-btn\" aria-label=\"" +
+      (boardRevealed ? "Hide board code" : "Show board code") + "\" title=\"" +
+      (boardRevealed ? "Hide board code" : "Show board code") + "\">" +
+      (boardRevealed ? EYE_OFF_SVG : EYE_SVG) + "</button>";
+    document.getElementById("gateGreeting").innerHTML = savedName
+      ? "Hi " + escapeHtml(savedName) + " · Board: " + boardHtml
+      : "Board: " + boardHtml;
+    document.getElementById("boardRevealBtn").addEventListener("click", function(){
+      boardRevealed = !boardRevealed;
+      renderAll();
+    });
+    document.getElementById("cellDetail").textContent = mode === "edit"
+      ? "Click or drag cells to mark when " + (activePerson() ? activePerson().name : "this person") + " is free."
+      : "Hover or tap a cell to see who's free then.";
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  function showGate(){
+    document.getElementById("gateNameInput").value = localStorage.getItem(NAME_KEY) || "";
+    document.getElementById("gatePasscodeInput").value = currentBoard;
+    document.getElementById("gateError").textContent = "";
+    document.getElementById("landingGate").hidden = false;
+    document.getElementById("gateNameInput").focus();
+  }
+  function hideGate(){
+    document.getElementById("landingGate").hidden = true;
+  }
+
+  function enterBoard(name, passcode){
+    name = (name || "").trim();
+    if(!name){
+      document.getElementById("gateError").textContent = "Enter your name to continue.";
+      return;
+    }
+    const sanitized = sanitizeBoardId(passcode);
+    if(!sanitized){
+      document.getElementById("gateError").textContent = "Enter a board code to continue.";
+      return;
+    }
+    localStorage.setItem(NAME_KEY, name);
+    const changedBoard = sanitized !== currentBoard;
+    currentBoard = sanitized;
+    localStorage.setItem(BOARD_KEY, currentBoard);
+    const nameInput = document.getElementById("nameInput");
+    if(nameInput && !nameInput.value){ nameInput.value = name; }
+    hideGate();
+    if(changedBoard || !hasSubscribed){ subscribeBoard(); } else { renderAll(); }
+  }
+
+  document.getElementById("addColorBtn").addEventListener("click", function(){
+    pickColor(document.getElementById("addColorBtn"), addColor, function(color){
+      addColor = color;
+      addColorTouched = true;
+      document.getElementById("addColorBtn").style.background = addColor;
+    });
+  });
+
+  document.getElementById("addForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    const nameInput = document.getElementById("nameInput");
+    const tzSelect = document.getElementById("tzInput");
+    addPerson(nameInput.value, tzSelect.value);
+    nameInput.value = "";
+    nameInput.focus();
+  });
+
+  document.getElementById("displayTzSelect").addEventListener("change", function(e){
+    displayTz = e.target.value;
+    localStorage.setItem(TZ_PREF_KEY, displayTz);
+    renderAll();
+  });
+
+  document.getElementById("switchBoardBtn").addEventListener("click", showGate);
+
+  document.getElementById("gateSubmitBtn").addEventListener("click", function(){
+    enterBoard(document.getElementById("gateNameInput").value, document.getElementById("gatePasscodeInput").value);
+  });
+  document.getElementById("landingGate").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      e.preventDefault();
+      enterBoard(document.getElementById("gateNameInput").value, document.getElementById("gatePasscodeInput").value);
+    }
+  });
+
+  wireGridInteractions(document.getElementById("schedTable"));
+  populateTzSelect(document.getElementById("tzInput"), displayTz);
+  if(localStorage.getItem(NAME_KEY) && currentBoard){
+    subscribeBoard();
+  } else {
+    showGate();
+  }
+</script>
+</body>
+</html>
