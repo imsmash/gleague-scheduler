@@ -569,8 +569,8 @@
 
   function sanitizeBoardId(raw){
     return (raw || "")
-      .trim().toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
+      .trim()
+      .replace(/[^a-zA-Z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 40);
   }
