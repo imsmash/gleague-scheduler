@@ -391,6 +391,21 @@
     border-radius:999px;
     flex:none;
   }
+  .best-item .right{display:flex;align-items:center;gap:8px;flex:none;}
+  .copy-ts-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-dim);
+    border-radius:6px;
+    padding:5px 9px;
+    font-size:11.5px;
+    font-family:var(--font-body);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .copy-ts-btn:hover{border-color:var(--accent);color:var(--text);}
+  .copy-ts-btn.copied{border-color:var(--good);color:var(--good);}
   .names{font-size:12px;color:var(--text-dim);margin-top:2px;}
 
   .cell-detail{
@@ -654,6 +669,41 @@
     return ((total % WEEK_MIN) + WEEK_MIN) % WEEK_MIN;
   }
   function cellKey(weekMin){ return String(weekMin); }
+  const WEEKDAY_INDEX = { Mon:0, Tue:1, Wed:2, Thu:3, Fri:4, Sat:5, Sun:6 };
+  function nowWallMinutes(tz, date){
+    try{
+      const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+      const parts = dtf.formatToParts(date).reduce(function(acc,p){ acc[p.type]=p.value; return acc; }, {});
+      return WEEKDAY_INDEX[parts.weekday] * 1440 + parseInt(parts.hour,10) * 60 + parseInt(parts.minute,10);
+    }catch(e){ return 0; }
+  }
+  function nextEpochSeconds(targetTotalMinutes, tz, refDate){
+    let delta = targetTotalMinutes - nowWallMinutes(tz, refDate);
+    while(delta < 0) delta += WEEK_MIN;
+    return Math.round((refDate.getTime() + delta * 60000) / 1000);
+  }
+  async function copyDiscordTimestamp(totalMinutes, btn){
+    const epoch = nextEpochSeconds(totalMinutes, displayTz, refDate);
+    const text = "<t:" + epoch + ":F>";
+    try{
+      await navigator.clipboard.writeText(text);
+    }catch(e){
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try{ document.execCommand("copy"); }catch(e2){}
+      document.body.removeChild(ta);
+    }
+    if(btn){
+      const prev = btn.textContent;
+      btn.textContent = "Copied!";
+      btn.classList.add("copied");
+      setTimeout(function(){ btn.textContent = prev; btn.classList.remove("copied"); }, 1500);
+    }
+  }
   function newId(){
     if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return Date.now().toString(36) + Math.random().toString(36).slice(2,10);
@@ -1240,10 +1290,22 @@
       names.textContent = b.names.join(", ");
       left.appendChild(names);
       li.appendChild(left);
+      const right = document.createElement("div");
+      right.className = "right";
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copy-ts-btn";
+      copyBtn.textContent = "Copy Discord time";
+      copyBtn.title = "Copies a Discord timestamp for the next occurrence of this time";
+      copyBtn.addEventListener("click", function(){
+        copyDiscordTimestamp(weekMinuteFor(b.day, b.startSlot), copyBtn);
+      });
+      right.appendChild(copyBtn);
       const frac = document.createElement("span");
       frac.className = "frac";
       frac.textContent = b.count + "/" + total;
-      li.appendChild(frac);
+      right.appendChild(frac);
+      li.appendChild(right);
       list.appendChild(li);
     });
   }
